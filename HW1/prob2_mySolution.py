@@ -18,7 +18,7 @@ class GenData:
         The constructor, with fixed data generation
         """
         np.random.seed(12345)
-        d=1000
+        d=1000 # dimension
         ntrn=100
         sigma=1
         temp=np.ones((d,1))/np.linspace(1,500,d).reshape((d,1))
@@ -50,7 +50,7 @@ class RidgeObj:
         :param lam: regularization parameter
         """
         n=np.size(data.y)
-        self.x=data.x/np.sqrt(n)
+        self.x=data.x/np.sqrt(n) # normalize x and y by dividing sqrt{n}
         self.y=data.y/np.sqrt(n)
         self.lam=lam
         self.__solve__()
@@ -64,7 +64,7 @@ class RidgeObj:
         x_trans = np.transpose(self.x)
         vals, vects = np.linalg.eig(np.dot(x_trans, self.x))
         l_max = np.max(vals)
-        l = float(l_max) + self.lam
+        l = l_max + self.lam
         return l
 
     def __solve__(self):
@@ -76,8 +76,11 @@ class RidgeObj:
         # implement
         x_trans = np.transpose(self.x)
         I = np.diagflat(np.ones((1000,1)))
+        # d = np.size(self.x, 1)
+        # I = np.eye(d)
         self.wstar = np.dot(np.linalg.inv(np.dot(x_trans,self.x)+self.lam*I),x_trans).dot(self.y)
         self.fstar = self.obj(self.wstar)
+        return
 
     def obj(self,w):
         """
@@ -86,10 +89,14 @@ class RidgeObj:
         :return: f(w)
         """
         # implement
-        x_trans = np.transpose(self.x)
-        y_trans = np.transpose(self.y)
+        #x_trans = np.transpose(self.x)
+        #y_trans = np.transpose(self.y)
         w_trans = np.transpose(w)
-        f_w = 0.5 * (np.dot(y_trans, self.y)-2*np.dot(y_trans, self.x).dot(w) +np.dot(w_trans, x_trans).dot(self.x).dot(w)+self.lam*np.dot(w_trans, w))
+        #f_w = 0.5 * (np.dot(y_trans, self.y)-2*np.dot(y_trans, self.x).dot(w) +np.dot(w_trans, x_trans).dot(self.x).dot(w)+self.lam*np.dot(w_trans, w))
+        res = self.x.dot(w) - self.y
+        res_trans = np.transpose(res)
+        #f_w = 0.5 * np.asscalar(res_trans.dot(res) + self.lam*np.dot(w_trans, w))
+        f_w = 0.5 * (res_trans.dot(res) + self.lam*np.dot(w_trans, w))
         return f_w
 
     def grad(self,w):
@@ -101,8 +108,7 @@ class RidgeObj:
         #implement
         x_trans = np.transpose(self.x)
         w_trans = np.transpose(w)
-        df_w = np.dot(x_trans, self.x).dot(w)-np.dot(x_trans, self.y)+self.lam*w
-        
+        df_w = np.dot(x_trans, self.x).dot(w)-np.dot(x_trans, self.y)+self.lam*w 
         return df_w
         
 
@@ -121,7 +127,7 @@ def gd(ridge, w0, eta, t):
     w = w0
     f = ridge.obj(w)
     subopt.append(f)
-    for i in range(t):
+    for ti in range(t):
         w = w - eta*ridge.grad(w)
         f = ridge.obj(w)
         subopt.append(f)
@@ -139,7 +145,7 @@ def main():
     lam_arr=[1e-4,1e-2,1,1e1]
     for lam in lam_arr:
         ridge=RidgeObj(data,lam)
-        # trying different learning rate at 0.1/L L 2/L
+        # trying different learning rate at 0.1/L 1/L 2/L
         eta_arr=np.array([0.1,1,2])/ridge.L()
      
 
