@@ -91,20 +91,13 @@ class HingeObj:
         :return: f(w)
         """
         # implement
-        
-        #f(w) = smoothed-hinge_gamma(1-w*x*y) + 0.5* lam * w *w
-
-        #smoothed-hinge_gamma(z) =   min_u [ (u)_+ + (0.5/gamma) (u-z)^2 ]
-        
-        #x_trans = np.transpose(self.x)
+        """
         n = len(self.x)
         d = len(self.x[0])
         temp = np.zeros([n, d])
         for i in range(n):
             temp[i] = self.x[i] * self.y[i]
-        #u = 1 - np.dot(w_trans, x_trans).dot(self.y)
         u = 1 - np.dot(temp, w)
-        #smHinge = 0
         f_w = 0
         for i in range (n):
             if u[i] > self.gamma:
@@ -113,14 +106,20 @@ class HingeObj:
                 f_w += 0 
             else:
                 f_w +=  0.5 * u[i] * u[i] /self.gamma
-        
         f_w = f_w / n
         f_w = float(f_w)
         w_trans = np.transpose(w)
         f_w = f_w + 0.5 * self.lam * np.dot(w_trans,w)
-        #f_w = float(f_w)
-        
-        
+        """
+        wp = w.reshape(np.size(w), 1)
+        # x: n x d;  wp: d x 1; y: n x 1
+        # z: n x 1
+        z = 1-self.x.dot(wp)*self.y
+        if (self.gamma>0):
+            loss = (z>self.gamma)*(z-self.gamma/2)+(z<=self.gamma)*(z>0)*(0.5/self.gamma)*z**2
+        else:
+            loss = (z>0)*(z)
+        f_w = np.mean(loss) + 0.5*self.lam*(wp.transpose().dot(wp))
         return f_w
 
 
@@ -131,14 +130,12 @@ class HingeObj:
         :return: gradient of f(w)
         """
         # implement
-        #w_trans = np.transpose(w)
-        #x_trans = np.transpose(self.x)
+        """
         n = np.size(self.x, 0)
         d = np.size(self.x, 1)
         temp = np.zeros([n, d])
         for i in range(n):
             temp[i] = self.x[i] * self.y[i]
-        #u = 1 - np.dot(w_trans, x_trans).dot(self.y)
         u = 1 - np.dot(temp, w)
         total = np.zeros([d, 1])
         for i in range(n):
@@ -151,8 +148,15 @@ class HingeObj:
                 delta = delta.reshape([d,1])
             total = total + delta
         total = total / n    
-        #df_w = self.lam*w + (1/self.gamma) * np.dot(x_trans, self.y).dot(temp)
         df_w = total + self.lam * w
+        """
+        wp = w.reshape(np.size(w), 1)
+        z = 1 - self.x.dot(wp)*self.y
+        if (self.gamma>0):
+            dloss = -1*(z>self.gamma)+(z<=self.gamma)*(z>0)*z*(-1/self.gamma)
+        else:
+            dloss = -1*(z>0)
+        df_w = self.x.transpose().dot(dloss*self.y)/np.size(dloss)+self.lam*wp
         
         return df_w
 
@@ -223,26 +227,26 @@ class HB :
         :return: the t+1 iterates found by HB from x_0 to x_t
         """
         # implement the heavy ball version of the practical adaptive Nesterov's method in Lecture 07
+        # Heavy Ball Method with adaptive beta
+        # practically simplified, use the observed learning rate to set gamma and beta
         xp=x0
         xpp=x0
-        yp=x0
         d=np.size(x0)
         gamma = 0
+        gp = np.linalg.norm(f.grad(xp), 2)
         result=np.zeros((d,t+1))
         result[:,0]=x0.transpose()
         for ti in range(t):
             beta = min(1, math.exp(gamma))
             y = xp + beta*(xp-xpp)
-            x=y-alpha*f.grad(xp)
+            p = f.grad(xp)
+            x=y-alpha*p
+            g = np.linalg.norm(p,2)
+            gamma = 0.8*gamma + 0.2*2*math.log(g/gp)
+            gp = g
             xpp=xp
             xp=x
             result[:,ti+1]=x.transpose()
-            dy=f.grad(y)
-            dy_trans=np.transpose(dy)
-            dyp=f.grad(yp)
-            dyp_trans=np.transpose(dyp)
-            gamma = 0.8*gamma + 0.2*math.log(np.dot(dy_trans,dy)/np.dot(dyp_trans,dyp))
-            yp = y
         return result
 
     
@@ -270,7 +274,7 @@ class ACCL:
         result[:,0] = x0.transpose()
         for ti in range(t):
             y = xp + beta*(xp-xpp)
-            x = y-alpha**f.grad(y)
+            x = y-alpha*f.grad(y)
             xpp = xp
             xp = x
             result[:,ti+1] = x.transpose()
@@ -290,32 +294,28 @@ class ACCL:
         :return: the t+1 iterates found by ACCL from x_0 to x_t
         """
         # implement the practical adaptive Nesterov's method in Lecture 07 (Alg 2)
+        # Nesterov's acceleration with adaptive beta
         xp=x0
         xpp=x0
-        yp=x0
         d=np.size(x0)
         gamma = 0
+        gp=np.linalg.norm(f.grad(xp),2)
         result=np.zeros((d,t+1))
         result[:,0]=x0.transpose()
         for ti in range(t):
             beta = min(1, math.exp(gamma))
             y = xp + beta*(xp-xpp)
-            x=y-alpha*f.grad(y)
+            p = f.grad(y)
+            x = y-alpha*p
+          
+            g = np.linalg.norm(p,2)
+            if (g<1e-16):
+                break
+            gamma = 0.8 * gamma + 0.2 * 2 * np.log(g/gp)
+            gp = g
             xpp=xp
             xp=x
             result[:,ti+1]=x.transpose()
-            dy=f.grad(y)
-            dy_trans=np.transpose(dy)
-            dyp=f.grad(yp)
-            dyp_trans=np.transpose(dyp)
-            gamma = 0.8*gamma + 0.2*math.log(np.dot(dy_trans,dy)/np.dot(dyp_trans,dyp))
-            yp = y
-            if np.dot(dy_trans,dy) < eps:
-                ti += 1
-                while (ti < t):
-                    result[:,ti+1] = x.transpose()
-                    ti += 1
-                    break
         return result
     
     @staticmethod
@@ -330,29 +330,29 @@ class ACCL:
         :return: the t+1 iterates found by ACCL from x_0 to x_t
         """
         # implement the Nesterov's general acceleration method in Lecture 07 (Alg 3)
+        # applicable for the smooth and non-strongly convex case
         xp = x0
         xpp = x0
-        gamap = 1/alpha
-        #theta = 1
+        gamma = 1/alpha
+        theta = 1
+        #gamap = 1/alpha
         #thetap = 1
-        thetap = 1
         d = np.size(x0)
         result = np.zeros((d,t+1))
         result[:,0] = x0.transpose()
         for ti in range(t):
+            thp = theta
             a = 1/alpha
-            b = gamap-lam
-            c = -gamap
+            b = gamma-lam
+            c = -gamma
             temp = math.sqrt(b**2 -4*a*c)
             theta = (-b+temp)/(2*a)
-            gama=(1-theta)*(gamap) + (theta*lam)
-            beta = (1/theta-1)*(1/thetap-1)*gamap/(1/alpha-lam)
+            beta = (1/theta-1)*(1/thp-1)*gamma/(1/alpha-lam)
+            gamma=(1-theta)*(gamma) + (theta*lam)
             y = xp + beta*(xp-xpp)
             x = y-alpha*f.grad(y)
             xpp = xp
             xp = x
-            gamap = gama
-            thetap = theta
             result[:,ti+1] = x.transpose()
         return result
 
@@ -389,14 +389,17 @@ def do_experiment(ff,lam,gamma,alpha,beta):
     plt.ylabel('primal-suboptimality')
 
     w=w0
+    # alpha -- learning rate
     result=GD.solve(ff,w,alpha,t)
     plot_conv(ff,result,'black','GD')
 
     w=w0
+    # Nesterov's acceleration method, requiring manually settings of alpha and beta
     result=ACCL.solve(ff,w,alpha,beta,t)
     plot_conv(ff,result,'green','Accl-beta={:.2g}'.format(beta))
 
     w = w0
+    # Heavy Ball Method, requiring manually settings of alpha and beta
     result = HB.solve(ff, w, alpha, beta, t)
     plot_conv(ff, result, 'blue', 'HB-beta={:.2g}'.format(beta))
 
@@ -424,6 +427,7 @@ def do_experiment(ff,lam,gamma,alpha,beta):
 
 def main():
     data=HingeData()
+    #------------------------------------------------------------------
     # smooth and strongly convex function optimization
     print("smooth and strongly convex optimization")
     lam = 1e-3 # strongly convex
@@ -434,6 +438,7 @@ def main():
     for beta in [0.5,0.9,0.95]:
         do_experiment(ff,lam,gamma,alpha,beta)
 
+    #-------------------------------------------------------------------
     # nearly nonsmooth function optimization
     print("nearly nonsmooth and strongly convex optimization")
     lam = 1e-3 # strongly convex
@@ -444,6 +449,7 @@ def main():
     for beta in [0.9,0.95,0.99]:
         do_experiment(ff,lam,gamma,alpha,beta)
 
+    #--------------------------------------------------------------------
     # nearly nonstrongly convex function optimization
     print("smooth and nearly nonstrongly convex optimization")
     lam = 1e-6 # nearly nonstrongly convex
