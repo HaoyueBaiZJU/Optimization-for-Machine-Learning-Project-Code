@@ -1,5 +1,7 @@
 #!/usr/local/bin/python3
-#
+
+# HKUST CSE COMP6211 Homework 3
+# author: BAI Haoyue
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -146,10 +148,7 @@ class LogisticObj:
         """
         # implement
         temp = w - alpha * self.grad_f(w)
-        
         prox_g = (w-self.prox_map(alpha, temp))/alpha
-        
-        #prox_g = self.prox_map(alpha, temp)
         return prox_g
 
 
@@ -181,17 +180,18 @@ class LogisticObj:
         :return: proximal_map
         """
         # implement
-        n = np.size(w)
-        prox_m=np.zeros((n,1))
-        for i in range(n):
-            if w[i] > eta*self.mu:
-                #prox_m[i] = w[i] - eta*self.mu
-                prox_m[i] = (w[i] - eta*self.mu)/(1+eta*self.lam)
-            elif w[i] < -eta*self.mu:
-                #prox_m[i] = w[i] + eta*self.mu
-                prox_m[i] = (w[i] + eta*self.mu)/(1+eta*self.lam)
-            else:
-                prox_m[i] = 0
+        #n = np.size(w)
+        #prox_m=np.zeros((n,1))
+        #for i in range(n):
+        #    if w[i] > eta*self.mu:
+        #        prox_m[i] = (w[i] - eta*self.mu)/(1+eta*self.lam)
+        #    elif w[i] < -eta*self.mu:
+        #        prox_m[i] = (w[i] + eta*self.mu)/(1+eta*self.lam)
+        #    else:
+        #        prox_m[i] = 0
+        wp = w/(1+self.lam*eta)
+        etap = eta/(1+self.lam*eta)
+        prox_m = np.maximum(0, np.abs(wp)-etap*self.mu)*np.sign(wp)
         return prox_m
         
     def grad_gstar(self,alpha):
@@ -202,18 +202,16 @@ class LogisticObj:
         :return:  gradient of g^*(alpha)
         """
         # implement
-        #grad_gs = self.lam * alpha
-        #return grad_gs
-    
-        d=np.size(alpha)
-        grad_gs=np.zeros((d,1))
-        for i in range(d):
-            alphai=alpha[i][0]
-            if alphai>self.mu:
-                grad_gs[i]=(alphai-self.mu)/self.lam
-            elif alphai<-self.mu:
-                grad_gs[i]=(alphai+self.mu)/self.lam
-
+        #d=np.size(alpha)
+        #grad_gs=np.zeros((d,1))
+        #for i in range(d):
+        #    alphai=alpha[i][0]
+        #    if alphai>self.mu:
+        #        grad_gs[i]=(alphai-self.mu)/self.lam
+        #    elif alphai<-self.mu:
+        #        grad_gs[i]=(alphai+self.mu)/self.lam
+        u = np.maximum(0, np.abs(alpha)-self.mu)*np.sign(alpha)
+        grad_gs = (1.0/self.lam)*u
         return grad_gs
 
 
@@ -233,19 +231,18 @@ class RDA:
         :return: the t+1 iterates found by the method from x_0 to x_t
         """
         # implement
+        # regularized dual averaging
         xp=x0
-        etap = eta
-        alphap = xp
+        etat = 0
+        alpha = x0
         d=np.size(x0)
         result=np.zeros((d,t+1))
         result[:,0]=x0.transpose()
         for ti in range(t):
-            alpha = alphap - eta * phi.grad_f(xp)
-            etac = etap + eta
-            x=phi.prox_map(etac, alpha)
+            alpha = alpha - eta * phi.grad_f(xp)
+            etat = etat + eta
+            x=phi.prox_map(etat, alpha)
             xp=x
-            alphap = alpha
-            etap = etac
             result[:,ti+1]=x.transpose()
         return result
         
@@ -265,16 +262,16 @@ class PrimalDualAscent:
         :return: the t+1 iterates found by the method from x_0 to x_t
         """
         # implement
-        xp = alpha0
-        alphap = alpha0
-        d=np.size(xp)
+        if (eta>0.9):
+            eta = 0.9
+        d = np.size(alpha0)
+        alpha = alpha0
+        x = phi.grad_gstar(alpha)
         result=np.zeros((d,t+1))
-        result[:,0]=xp.transpose()
+        result[:,0]=x.transpose()
         for ti in range(t):
-            alpha = (1 - eta) * alphap - eta*phi.grad_f(xp)
+            alpha = (1 - eta) * alpha - eta*phi.grad_f(x)
             x=phi.grad_gstar(alpha)
-            xp=x
-            alphap = alpha
             result[:,ti+1]=x.transpose()
         return result
 
@@ -282,7 +279,6 @@ class ProxGD:
     """
     Implementing Gradient Descent Algorithm
     """
-
     @staticmethod
     def solve(phi,x0,eta,t):
         """
@@ -316,30 +312,32 @@ class ProxGD:
         :return: the t+1 iterates found by GD from x_0 to x_t
         """
         # implement
+        # proximal gradient descent with AG learning rate
         xp=x0
-        etap = eta0
+        eta = eta0
         tau = 0.8
         d=np.size(x0)
         result=np.zeros((d,t+1))
         result[:,0]=x0.transpose()
+        f0 = phi.obj_f(xp)
         for ti in range(t):
-            eta = etap
+            g = phi.grad_f(xp)
             while True: 
-                tempx = xp - eta*phi.grad_f(xp)
+                tempx = xp - eta*g
                 x = phi.prox_map(eta, tempx)
                 left = phi.obj_f(x)
                 m = np.linalg.norm(x-xp,2)
-                right = phi.obj_f(xp) + np.transpose(phi.grad_f(xp)).dot(x-xp) + (1/(2*eta))*m**2
+                right = phi.obj_f(xp) + np.transpose(g).dot(x-xp) + (1/(2*eta))*m**2+1e-10
                 if left <= right:
                     break
                 eta = tau * eta
             left = phi.obj_f(x)
             m = np.linalg.norm(x-xp,2)
-            right = phi.obj_f(xp) + np.transpose(phi.grad_f(xp)).dot(x-xp) + (tau/(2*eta))*m**2
+            right = phi.obj_f(xp) + np.transpose(g).dot(x-xp) + (tau/(2*eta))*m**2-1e-10
             if left <= right:
-                eta = eta/tau**(0.5)
+                eta = eta/np.sqrt(tau)
             xp=x
-            etap = eta
+            f0 = left
             result[:,ti+1]=x.transpose()
         return result
 
@@ -419,6 +417,7 @@ class ProxACCL:
         :return: the t+1 iterates found by ACCL from x_0 to x_t
         """
         # implement
+        # Nesterov's Accelerated Proximal Gradient with AG Learning Rate
         tau=0.8
         c=0.5
         xp=x0
@@ -426,45 +425,40 @@ class ProxACCL:
         d=np.size(x0)
         result=np.zeros((d,t+1))
         result[:,0]=x0.transpose()
-        lrate=0
-        alphap=alpha0
-        yp = x0
+        lrate=-2
+        gp = 1e-10
+        alpha=alpha0
         fcc=phi.obj_f(xp)
         for ti in range(t):
             beta=min(1.0, np.exp(lrate))
             y=xp+beta*(xp-xpp)
-            alpha = alphap
             p=phi.grad_f(y)
             temp = y - alpha*p
             x = phi.prox_map(alpha, temp)
-            g=np.linalg.norm(p,2)
-            m = np.linalg.norm((x-y)/alpha, 2)
-            m2 = np.linalg.norm((xp-yp)/alphap,2)
-            lrate=0.8*lrate + 0.2*2*np.log( min( 1.0, m/m2))
+            g = np.linalg.norm((x-y)/alpha, 2)
+            lrate=0.8*lrate + 0.2*2*np.log( min( 1.0, g/gp))
             if (g<eps):
                 for tp in range(ti,t):
                     result[:,ti+1]=x.transpose()
                 break
+            gp = g
             fc=phi.obj_f(x)
+            fp=phi.obj_f(y)
             if (fcc<fc):
                 lrate=lrate-1
             if (g**2>1e-16):
-                etap = (phi.obj_f(x)-phi.obj_f(y))/m**2
+                etap = (fp-fc)/g**2
                 while(etap<=c*alpha and alpha>=1e-4*alpha0):
                     alpha=tau*alpha
                     temp=y-alpha*p
                     x=phi.prox_map(alpha, temp)
-                    m = np.linalg.norm((x-y)/alpha, 2)
-                    etap = (phi.obj_f(y)-phi.obj_f(x))/m**2         
+                    g = np.linalg.norm((x-y)/alpha, 2)
+                    fc = phi.obj(x)
+                    etap = (fp-fc)/g**2         
                 if(etap>=c*alpha/tau):
                     alpha=alpha/np.sqrt(tau)
-            #n1 = np.linalg.norm((x-y)/alpha,2)
-            #n2 = np.linalg.norm((xp-yp)/alphap,2)
-            #lrate = 0.8*lrate + 0.2*math.log((n1**2)/(n2**2))
             xpp=xp
             xp=x
-            yp = y
-            alphap = alpha
             fcc = fc
             result[:,ti+1]=x.transpose()
         return result
