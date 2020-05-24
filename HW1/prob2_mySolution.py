@@ -1,5 +1,6 @@
 #!/usr/local/bin/python3
-#
+# HKUST CSE COMP6211 Homework 1
+# author: BAI Haoyue
 
 import matplotlib.pyplot as plt
 import numpy as np
