@@ -22,6 +22,12 @@ Implement functions:
 5) Nesterov's acceleration with adaptive beta (practically simplified)
 6) Nesterov's general acceleration method (applicable for smooth and non-strongly convex case)
 
+# Homework 3
+Download data in the mnist directory (which contains class 1 (positive) versus 7 (negative) from the MNIST data)
+
+
+
+
 
 
 
