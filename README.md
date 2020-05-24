@@ -23,7 +23,20 @@ Implement functions:
 6) Nesterov's general acceleration method (applicable for smooth and non-strongly convex case)
 
 # Homework 3
-Download data in the mnist directory (which contains class 1 (positive) versus 7 (negative) from the MNIST data)
+Download data in the mnist directory (which contains class 1 (positive) versus 7 (negative) from the MNIST data).
+We consider the composite convex optimization with the L1-L2 regularized logistic regression objective function
+
+Implement functions:
+1) compute prox gradient of the objective f(w) + g(w)
+2) compute the proximal mapping
+3) gradient of the dual regularizer g^* (alpha)
+4) regularized dual averaging algorithm
+5) primal dual ascent method
+6) proximal gradient descent algorithm
+7) proximal descent with AG learning rate
+8) Nesterov's accelerated proximal gradient algorithm
+9) Nesterov's accelerated proximal gradient algorithm with AG learning rate
+
 
 
 
